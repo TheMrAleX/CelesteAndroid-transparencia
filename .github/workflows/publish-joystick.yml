@@ -1,0 +1,35 @@
+name: Publish dynamic joystick APK
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-joystick.yml']
+permissions:
+  actions: read
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified build and publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 38109008541 -R TheMrAleX/CelesteAndroid-transparencia -n CelesteAndroid-transparencia-arm64 -D out
+          mv out/CelesteAndroid-transparencia-arm64.apk out/CelesteAndroid-joystick-dinamico-arm64.apk
+          echo 'c0f9cf748a0c6049beb1fed10b1f9d49d4f21cd5b3a699fde558b8694dc6d962  out/CelesteAndroid-joystick-dinamico-arm64.apk' | sha256sum -c -
+          cat > notes.md <<'NOTES'
+          Añade Opciones → Joystick dinámico (lado izquierdo). Al tocar una zona libre del lado izquierdo, el joystick aparece bajo el dedo, mantiene su centro durante el movimiento y desaparece al soltar. Desactiva la opción para volver al modo fijo.
+
+          Conserva el ajuste de transparencia de botones. Las flechas direccionales permanecen fijas.
+
+          APK ARM64 para Pixel 7 Pro y otros dispositivos Android de 64 bits. Los archivos del juego se seleccionan aparte.
+
+          Compilación y firma completadas correctamente. Pendiente de prueba en un dispositivo físico.
+
+          **Instalación:** la firma difiere de la primera versión de este fork. Respalda tus partidas antes de desinstalar esa versión para instalar esta. La app original tiene otro identificador y puede permanecer instalada.
+
+          SHA-256 del APK: `c0f9cf748a0c6049beb1fed10b1f9d49d4f21cd5b3a699fde558b8694dc6d962`
+
+          Basado en KaliKylee/CelesteAndroid.
+          NOTES
+          gh release create v1.6.0-transparencia.2 out/CelesteAndroid-joystick-dinamico-arm64.apk -R TheMrAleX/CelesteAndroid-transparencia --target 4d547fad19ee7005163418f84395018cce2ef62a --title 'Celeste Android — Joystick dinámico y transparencia (ARM64)' --notes-file notes.md --latest

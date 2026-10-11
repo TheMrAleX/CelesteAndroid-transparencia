@@ -8,6 +8,7 @@ on:
       - '.github/workflows/build-pixel7.yml'
       - 'scripts/prepare-pixel7.py'
       - 'build-inputs/celeste-reference.enc'
+      - 'src/**'
 
 permissions:
   contents: read
@@ -57,7 +58,7 @@ jobs:
           dotnet publish src/Celeste.Android/Celeste.Android.csproj -c Release -o build/publish \
             -p:CelesteAbi=arm64-v8a -p:UseGameArt=false -p:EmbedGame=false \
             -p:ApplicationId=org.celesteandroid.transparencia \
-            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=4
+            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=5
           mkdir -p out
           cp build/publish/*-Signed.apk out/CelesteAndroid-transparencia-arm64.apk
           python - <<'PY'

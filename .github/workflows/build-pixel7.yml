@@ -1,0 +1,75 @@
+name: Build Pixel 7 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-pixel7.yml'
+      - 'scripts/prepare-pixel7.py'
+      - 'build-inputs/celeste-reference.enc'
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CELESTE_REFERENCE_KEY: ${{ secrets.CELESTE_REFERENCE_KEY }}
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+    steps:
+      - name: Check private build key
+        run: |
+          if [ -z "$CELESTE_REFERENCE_KEY" ]; then
+            echo 'Add the CELESTE_REFERENCE_KEY repository Actions secret, then rerun this workflow.'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
+      - name: Install Android workload
+        run: dotnet workload install android
+      - name: Fetch open-source dependencies
+        run: |
+          git init external/FNA
+          git -C external/FNA remote add origin https://github.com/FNA-XNA/FNA.git
+          git -C external/FNA fetch --depth 1 origin f26777a19cf11c37a77bd51ad963a2a9a4d97222
+          git -C external/FNA checkout --detach FETCH_HEAD
+          git -C external/FNA submodule update --init --recursive --depth 1
+          git clone --depth 1 --branch release-3.4.16 https://github.com/libsdl-org/SDL.git external/SDL
+      - name: Prepare ARM64 runtime and private reference
+        run: |
+          python -m pip install cryptography
+          python scripts/prepare-pixel7.py
+      - name: Build separate signed APK
+        run: |
+          dotnet publish src/Celeste.Android/Celeste.Android.csproj -c Release -o build/publish \
+            -p:CelesteAbi=arm64-v8a -p:UseGameArt=false -p:EmbedGame=false \
+            -p:ApplicationId=org.celesteandroid.transparencia \
+            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=4
+          mkdir -p out
+          cp build/publish/*-Signed.apk out/CelesteAndroid-transparencia-arm64.apk
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          with zipfile.ZipFile(Path('out/CelesteAndroid-transparencia-arm64.apk')) as z:
+              assert not any(n.startswith('assets/game/') or n.endswith('/Celeste.exe') for n in z.namelist()), 'Game executable must not be included'
+              assert 'lib/arm64-v8a/libfmod.so' in z.namelist()
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CelesteAndroid-transparencia-arm64
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 7

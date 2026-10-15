@@ -214,6 +214,7 @@ namespace CelesteAndroid
 			var menu = new PopupMenu(this, langButton);
 			for (int i = 0; i < L.All.Length; i++)
 				menu.Menu!.Add(0, i, i, $"{L.Flag(L.All[i])}  {L.Name(L.All[i])}");
+			menu.Menu.Add(0, VibrationId, 5, L.Vibration);
 			menu.MenuItemClick += (_, e) =>
 			{
 				L.Set(Prefs, L.All[e.Item!.ItemId]);
@@ -226,7 +227,7 @@ namespace CelesteAndroid
 
 		private void ShowOptionsMenu()
 		{
-			const int EditControlsId = 0, ShowFpsId = 1, HideTouchId = 2, TransparencyId = 3, DynamicJoystickId = 4;
+			const int EditControlsId = 0, ShowFpsId = 1, HideTouchId = 2, TransparencyId = 3, DynamicJoystickId = 4, VibrationId = 5;
 			var menu = new PopupMenu(this, optionsButton);
 			menu.Menu!.Add(0, EditControlsId, 0, L.EditControls);
 			menu.Menu.Add(0, ShowFpsId, 1, L.ShowFps)!.SetCheckable(true)!.SetChecked(GameOptions.ShowFps(Prefs));
@@ -237,6 +238,9 @@ namespace CelesteAndroid
 			{
 				switch (e.Item!.ItemId)
 				{
+					case VibrationId:
+						HapticsSettings.Show(this, HideSystemBars);
+						break;
 					case EditControlsId:
 						StartActivity(new Intent(this, typeof(ControlsEditorActivity)));
 						break;
@@ -429,6 +433,7 @@ namespace CelesteAndroid
 			var intent = new Intent(this, typeof(GameActivity));
 			if (GraphicsDriver.Effective(Prefs) == GraphicsDriver.OpenGL)
 				intent.PutExtra(GameActivity.ExtraDriver, GraphicsDriver.OpenGL);
+			GameOptions.PutVibrationExtras(intent, Prefs);
 			intent.PutExtra(GameActivity.ExtraShowFps, GameOptions.ShowFps(Prefs));
 			intent.PutExtra(GameActivity.ExtraHideTouch, GameOptions.HideTouch(Prefs));
 			intent.PutExtra(GameActivity.ExtraDynamicJoystick, GameOptions.DynamicJoystick(Prefs));

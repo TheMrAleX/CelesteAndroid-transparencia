@@ -7,9 +7,14 @@ on:
     paths:
       - '.github/workflows/build-pixel7.yml'
       - 'scripts/prepare-pixel7.py'
+      - 'scripts/prepare-release-signing.py'
       - 'build-inputs/celeste-reference.enc'
       - 'src/**'
       - 'tests/TouchHaptics/**'
+
+concurrency:
+  group: full-app-release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -20,6 +25,9 @@ jobs:
     timeout-minutes: 45
     env:
       CELESTE_REFERENCE_KEY: ${{ secrets.CELESTE_REFERENCE_KEY }}
+      APP_VERSION_CODE: '7'
+      APP_VERSION_NAME: '1.6.0-haptics.2'
+      RELEASE_TAG: 'v1.6.0-haptics.2'
       DOTNET_NOLOGO: 'true'
       DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
     steps:
@@ -56,13 +64,18 @@ jobs:
         run: |
           python -m pip install cryptography
           python scripts/prepare-pixel7.py
+      - name: Restore persistent release signing key
+        run: python scripts/prepare-release-signing.py
       - name: Build separate signed APK
         run: |
           dotnet publish src/Celeste.Android/Celeste.Android.csproj -c Release -o build/publish \
             -p:CelesteAbi=arm64-v8a -p:UseGameArt=false -p:EmbedGame=false \
             -p:ApplicationId=org.celesteandroid.transparencia \
-            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=6 \
-            -p:ApplicationDisplayVersion=1.6.0-haptics.1
+            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion="$APP_VERSION_CODE" \
+            -p:ApplicationDisplayVersion="$APP_VERSION_NAME" \
+            -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="$CELESTE_SIGN_STORE" \
+            -p:AndroidSigningKeyAlias=celeste -p:AndroidSigningKeyPass=env:CELESTE_SIGN_PASS \
+            -p:AndroidSigningStorePass=env:CELESTE_SIGN_PASS
           mkdir -p out
           cp build/publish/*-Signed.apk out/CelesteAndroid-transparencia-arm64.apk
           python - <<'PY'
@@ -89,6 +102,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<'NOTES'
+          Opciones → Vibración: ajustes integrados con guardado y botón de prueba.
+
+          - Interruptor general para activar/desactivar todos los pulsos.
+          - Botones: al tocar y soltar, solo al tocar o solo al soltar.
+          - Intensidad 0–100%; 0% silencia. En hardware con amplitud ajustable controla la fuerza; en otros dispositivos ajusta la duración.
+          - Interruptor independiente para los pulsos del joystick cada 45°.
+          - Prueba táctil antes de guardar; Cancelar conserva los valores anteriores.
+
           Nueva versión de la app completa de main: conserva transparencia, joystick dinámico, editor y botones personalizados. No modifica la rama touch-options de la PR.
 
           - Feedback háptico al pulsar y soltar los cinco botones y los botones personalizados.
@@ -98,8 +119,10 @@ jobs:
 
           APK ARM64 compilado en configuración Release y con firma verificada. Pruebas automáticas de los ejes y sus transiciones incluidas. Pendiente de prueba de sensación háptica en un teléfono físico. Los archivos de tu copia de Celeste se importan por separado.
 
-          **Antes de instalar:** esta compilación usa una nueva clave de firma del entorno de compilación. Android puede exigir desinstalar la versión anterior del fork. Exporta/respalda tus partidas antes de desinstalarla; no las borres sin copia. La app original utiliza otro identificador.
+          **Antes de instalar:** esta versión cambia de la clave temporal anterior a una clave de firma persistente. Android puede exigir desinstalar la versión anterior del fork: exporta/respalda tus partidas antes de hacerlo. Las siguientes compilaciones de esta app reutilizarán esta clave. La app original utiliza otro identificador.
+
+          El archivo .enc es una copia cifrada y autenticada de la clave de firma, recuperable únicamente con el secreto privado de compilación. Para jugar descarga solo el APK.
           NOTES
-          gh release create v1.6.0-haptics.1 out/CelesteAndroid-transparencia-arm64.apk out/SHA256SUMS.txt \
+          gh release create "$RELEASE_TAG" out/CelesteAndroid-transparencia-arm64.apk out/SHA256SUMS.txt out/CelesteAndroid-signing-key.enc \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title 'Celeste Android — Feedback háptico (ARM64)' --notes-file notes.md --latest
+            --title 'Celeste Android — Vibración configurable (ARM64)' --notes-file notes.md --latest

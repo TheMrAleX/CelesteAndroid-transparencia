@@ -17,32 +17,40 @@ No se han borrado ni renombrado ramas. Para una nueva función de la app persona
 
 ## Feedback háptico
 
-Implementación de la app completa: `8e9914ada063581aac9ae710392c65e268203182`.
-Rama para PR: `touch-haptics`, commit inicial `1f800749f9888b4711764294836123851889a17b`.
+Implementación inicial: `8e9914ada063581aac9ae710392c65e268203182`. Ajustes configurables: `f92325b7c5a9741648e849e077b0e0ab2807ac8f`.
+Rama para PR: `touch-haptics`; ajustes configurables en `53672b9789b47e0397eace801c4468218bad2f39`.
 
 - `src/Celeste.Android.Patches/TouchControls.cs`: detecta transiciones de botones táctiles antes de aplicar teclado; incluye hasta 12 botones personalizados y las cuatro flechas.
 - `src/Celeste.Android.Patches/StickHaptics.cs`: ejes cada 45°, ventana de adquisición ±5°, rearme a más de 9°, cruces rápidos y continuidad al pasar entre -180° y +180°; silencio al mantener una dirección o entrar en zona muerta.
-- `src/Celeste.Android/GameActivity.cs`: puente `AppContext` con `Action<int>`, despacho al hilo UI y control de pausa/destrucción. Códigos: 1=pulsar, 2=soltar, 3=eje. Respeta los ajustes hápticos de Android; API 26 usa ClockTick para soltar.
+- `src/Celeste.Android/GameActivity.cs`: puente `AppContext` con `Action<int>`, despacho al hilo UI y control de pausa/destrucción. Códigos: 1=pulsar, 2=soltar, 3=eje. Delega en `TouchVibration` con los ajustes enviados por Intent desde el launcher.
+- `src/Celeste.Android/HapticsSettings.cs`: Opciones → Vibración; activación, pulsar/soltar/ambos, intensidad 0–100%, joystick y prueba antes de guardar. Todos los textos están localizados en los diez idiomas de la app.
+- `src/Celeste.Android/HapticPolicy.cs` y `TouchVibration.cs`: filtrado de eventos, intensidad por amplitud o duración de respaldo y respeto del ajuste táctil de Android. `GameOptions` guarda preferencias; el launcher las envía al proceso `:game` mediante Intent para evitar cachés desactualizadas entre procesos.
 - `tests/TouchHaptics`: pruebas independientes de FNA, Android y archivos del juego. Ejecutar `dotnet run --project tests/TouchHaptics -c Release`.
 
-La rama para PR tiene seis archivos modificados/añadidos: tres de implementación, dos de pruebas y `.github/workflows/test-touch-haptics.yml`. Conserva el comportamiento de opacidad de upstream. Los cambios de compilación, identidad de la app y releases del fork quedan en `main`.
+La rama para PR incluye implementación háptica, panel de ajustes, localización, documentación, pruebas y `.github/workflows/test-touch-haptics.yml`. Conserva el comportamiento de opacidad de upstream. Los cambios de compilación, identidad de la app y releases del fork quedan en `main`.
 
 ## Evidencia y límites
 
-- Build de la app completa, pruebas y firma: https://github.com/TheMrAleX/CelesteAndroid-transparencia/actions/runs/38671843840
-- APK publicado: https://github.com/TheMrAleX/CelesteAndroid-transparencia/releases/tag/v1.6.0-haptics.1
-- SHA-256 APK ARM64: `bd550c11b484fcb8d0de74fe1774512c9945420ed8b01e8497ff3eb0443d4850`
-- Application ID: `org.celesteandroid.transparencia`; versionCode 6; versionName `1.6.0-haptics.1`.
-- La compilación se verificó; la sensación háptica y el gameplay en un dispositivo físico siguen pendientes. El usuario estaba descargando el APK al preparar esta guía.
+- Build de la app completa, pruebas y firma: https://github.com/TheMrAleX/CelesteAndroid-transparencia/actions/runs/38673966966
+- Pruebas de la rama PR: https://github.com/TheMrAleX/CelesteAndroid-transparencia/actions/runs/38673984176
+- Configuración y prueba: `docs/VIBRATION.md`.
+- APK publicado: https://github.com/TheMrAleX/CelesteAndroid-transparencia/releases/tag/v1.6.0-haptics.2
+- SHA-256 APK ARM64: `51516a7d65c372cd52ea72e815d978dae3d8d194664171bb242bff9f338e065d`
+- Application ID: `org.celesteandroid.transparencia`; versionCode 7; versionName `1.6.0-haptics.2`.
+- La compilación se verificó; la sensación háptica y el gameplay en un dispositivo físico siguen pendientes. Los ajustes y su vista previa siguen pendientes de validación física.
 - El APK requiere importar los archivos de la copia de Celeste del usuario.
 
-## Antes de publicar otro APK
+## Firma y próximas versiones
 
-La compilación Pixel 7 usa una firma temporal del runner. La clave de la versión anterior no se conservó para futuras actualizaciones; no prometer instalación sobre esa versión. Android puede exigir desinstalarla, lo cual elimina los datos privados. Avisar al usuario que respalde partidas antes de desinstalar. Para próximas versiones, configurar una clave de firma persistente protegida y reutilizarla; no publicar claves en texto plano.
+La release `v1.6.0-haptics.2` cambia de la firma temporal de las versiones anteriores a una clave persistente RSA 3072. Al instalar sobre una versión anterior puede requerirse desinstalar: respaldar partidas antes de hacerlo. Desde esta release, las siguientes compilaciones pueden actualizar usando la misma firma.
 
-`.github/workflows/build-pixel7.yml` tiene versionCode 6, versionName y tag `v1.6.0-haptics.1` fijos. Antes de un nuevo cambio de código en `main`, actualizar estos valores y preparar la publicación para el nuevo tag: el build se activa con cambios de código, pero intentar crear otra vez el tag existente fallará al publicar. No borrar ni reemplazar la release existente. `.github/workflows/publish-joystick.yml` es una publicación histórica con run/tag fijos; no reutilizarla para nuevas versiones.
+`scripts/prepare-release-signing.py` recupera la clave desde el asset `CelesteAndroid-signing-key.enc` de **v1.6.0-haptics.2**. Esa referencia es canónica: no cambiar `signing_tag` al subir la versión de la app y no borrar ni reemplazar ese asset. La copia usa AES-GCM autenticado con una clave derivada por dominio del secreto `CELESTE_REFERENCE_KEY`; no contiene material de firma accesible en texto plano. La clave privada y contraseña descifradas solo existen en el runner. Si la referencia no se puede autenticar o falta en una release existente, el build falla en vez de cambiar de firma. No divulgar ni regenerar el secreto privado sin un plan de migración/recuperación.
 
-`CELESTE_REFERENCE_KEY` es un secreto de Actions usado para descifrar la referencia privada durante la compilación. No es una clave de firma. No es necesario leer ni mostrar su valor. El workflow de pruebas de la PR no necesita secretos ni archivos del juego. La compilación Android completa requiere .NET 10 con workload Android, Java 17, SDK 36, dependencias FNA/SDL y las referencias/runtime indicadas en `docs/BUILDING.md` y `scripts/prepare-pixel7.py`.
+En `.github/workflows/build-pixel7.yml`, subir `APP_VERSION_CODE` (actual: 7), `APP_VERSION_NAME` (actual: `1.6.0-haptics.2`) y `RELEASE_TAG` para publicar otra versión. La referencia canónica de firma permanece en v1.6.0-haptics.2. Los builds se serializan para evitar carreras al inicializar la firma. El build se activa con cambios de código; preparar primero un tag/versionCode nuevos. No borrar ni reemplazar una release publicada. `.github/workflows/publish-joystick.yml` es histórica: no reutilizarla.
+
+`CELESTE_REFERENCE_KEY` también descifra la referencia de compilación, pero no es por sí misma una clave APK: se usa una derivación separada para proteger la copia de firma. No es necesario leer ni mostrar su valor. La rama PR no incorpora scripts de firma, backups cifrados ni workflows de release del fork.
+
+El workflow de pruebas de la PR no requiere secretos ni archivos del juego. La compilación Android completa requiere .NET 10 con workload Android, Java 17, SDK 36 y las referencias/runtime descritas en `docs/BUILDING.md` y `scripts/prepare-pixel7.py`.
 
 ## Preparación de la PR
 

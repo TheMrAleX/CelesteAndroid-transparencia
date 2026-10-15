@@ -46,6 +46,8 @@ except urllib.error.HTTPError as error:
             raise
     else:
         raise SystemExit("Canonical signing release exists but its encrypted key is missing")
+    if os.environ.get("RELEASE_TAG") != signing_tag:
+        raise SystemExit("Canonical signing backup is unavailable; refusing to generate a replacement key")
     password = secrets.token_urlsafe(32)
     os.environ["CELESTE_SIGN_PASS"] = password
     subprocess.run([

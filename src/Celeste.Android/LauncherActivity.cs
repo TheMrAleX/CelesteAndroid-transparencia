@@ -214,7 +214,6 @@ namespace CelesteAndroid
 			var menu = new PopupMenu(this, langButton);
 			for (int i = 0; i < L.All.Length; i++)
 				menu.Menu!.Add(0, i, i, $"{L.Flag(L.All[i])}  {L.Name(L.All[i])}");
-			menu.Menu.Add(0, VibrationId, 5, L.Vibration);
 			menu.MenuItemClick += (_, e) =>
 			{
 				L.Set(Prefs, L.All[e.Item!.ItemId]);
@@ -234,6 +233,7 @@ namespace CelesteAndroid
 			menu.Menu.Add(0, HideTouchId, 2, L.HideTouchButtons)!.SetCheckable(true)!.SetChecked(GameOptions.HideTouch(Prefs));
 			menu.Menu.Add(0, TransparencyId, 3, L.TouchTransparency);
 			menu.Menu.Add(0, DynamicJoystickId, 4, L.DynamicJoystick)!.SetCheckable(true)!.SetChecked(GameOptions.DynamicJoystick(Prefs));
+			menu.Menu.Add(0, VibrationId, 5, L.Vibration);
 			menu.MenuItemClick += (_, e) =>
 			{
 				switch (e.Item!.ItemId)

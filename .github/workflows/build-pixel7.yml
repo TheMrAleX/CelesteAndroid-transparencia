@@ -9,9 +9,10 @@ on:
       - 'scripts/prepare-pixel7.py'
       - 'build-inputs/celeste-reference.enc'
       - 'src/**'
+      - 'tests/TouchHaptics/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   apk:
@@ -32,6 +33,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - name: Test joystick haptic transitions
+        run: dotnet run --project tests/TouchHaptics -c Release
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -58,7 +61,8 @@ jobs:
           dotnet publish src/Celeste.Android/Celeste.Android.csproj -c Release -o build/publish \
             -p:CelesteAbi=arm64-v8a -p:UseGameArt=false -p:EmbedGame=false \
             -p:ApplicationId=org.celesteandroid.transparencia \
-            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=5
+            -p:ApplicationTitle="Celeste Transparencia" -p:ApplicationVersion=6 \
+            -p:ApplicationDisplayVersion=1.6.0-haptics.1
           mkdir -p out
           cp build/publish/*-Signed.apk out/CelesteAndroid-transparencia-arm64.apk
           python - <<'PY'
@@ -74,3 +78,28 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Verify signature and compute checksum
+        run: |
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs out/CelesteAndroid-transparencia-arm64.apk
+          cd out
+          sha256sum CelesteAndroid-transparencia-arm64.apk > SHA256SUMS.txt
+      - name: Publish haptic release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'NOTES'
+          Nueva versión de la app completa de main: conserva transparencia, joystick dinámico, editor y botones personalizados. No modifica la rama touch-options de la PR.
+
+          - Feedback háptico al pulsar y soltar los cinco botones y los botones personalizados.
+          - Pulsos al alcanzar o cruzar los ejes del joystick cada 45° (ocho direcciones), con margen contra temblores. Funciona con joystick fijo y dinámico.
+          - Las flechas de la cruceta también vibran al pulsar y soltar.
+          - Respeta la configuración de respuesta táctil de Android. Actívala en los ajustes del teléfono si no notas los pulsos.
+
+          APK ARM64 compilado en configuración Release y con firma verificada. Pruebas automáticas de los ejes y sus transiciones incluidas. Pendiente de prueba de sensación háptica en un teléfono físico. Los archivos de tu copia de Celeste se importan por separado.
+
+          **Antes de instalar:** esta compilación usa una nueva clave de firma del entorno de compilación. Android puede exigir desinstalar la versión anterior del fork. Exporta/respalda tus partidas antes de desinstalarla; no las borres sin copia. La app original utiliza otro identificador.
+          NOTES
+          gh release create v1.6.0-haptics.1 out/CelesteAndroid-transparencia-arm64.apk out/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title 'Celeste Android — Feedback háptico (ARM64)' --notes-file notes.md --latest
